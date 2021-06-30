@@ -74,6 +74,16 @@ class GameViewModel: ViewModel() {
         return false
     }
 
+    /**
+     * Re-initializes game when game is finished, but wants to play again
+     */
+    fun reinitializeData(){
+        _score = 0
+        _currentWordCount = 0
+        wordsList.clear()
+        getNextWord()
+    }
+
     override fun onCleared() {
         super.onCleared()
         Log.d(TAG, "GameViewModel destroyed")
