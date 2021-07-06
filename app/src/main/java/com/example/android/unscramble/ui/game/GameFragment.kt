@@ -17,10 +17,10 @@
 package com.example.android.unscramble.ui.game
 
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.databinding.DataBindingUtil
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import com.example.android.unscramble.R
@@ -32,44 +32,35 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
  */
 class GameFragment : Fragment() {
 
-    companion object{
-        private const val TAG = "GameFragment"
-    }
-
    private val viewModel: GameViewModel by viewModels()
-
 
     // Binding object instance with access to the views in the game_fragment.xml layout
     private lateinit var binding: GameFragmentBinding
-
-    // Create a ViewModel the first time the fragment is created.
-    // If the fragment is re-created, it receives the same GameViewModel instance created by the
-    // first fragment
 
     override fun onCreateView(
             inflater: LayoutInflater, container: ViewGroup?,
             savedInstanceState: Bundle?
     ): View {
         // Inflate the layout XML file and return a binding object instance
-        binding = GameFragmentBinding.inflate(inflater, container, false)
+        binding = DataBindingUtil.inflate(inflater, R.layout.game_fragment, container, false)
 
-        Log.d(TAG, "GameFragment (re)created")
-        Log.d(TAG, "Word: ${viewModel.currentScrambledWord} " +
-                "Score: ${viewModel.score} WordCount: ${viewModel.currentWordCount}")
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        binding.gameViewModel = viewModel
+
+        binding.maxNoOfWords = MAX_NO_OF_WORDS
+
+        // Specify the fragment view as the lifecycle owner of the binding.
+        // This is used so that the binding can observe LiveData updates
+        binding.lifecycleOwner = viewLifecycleOwner
+
         // Setup a click listener for the Submit and Skip buttons.
         binding.submit.setOnClickListener { onSubmitWord() }
         binding.skip.setOnClickListener { onSkipWord() }
-        // Update the UI
-        updateNextWordOnScreen()
-        binding.score.text = getString(R.string.score, 0)
-        binding.wordCount.text = getString(
-                R.string.word_count, 0, MAX_NO_OF_WORDS)
     }
 
     /*
@@ -77,21 +68,16 @@ class GameFragment : Fragment() {
     * Displays the next scrambled word.
     */
     private fun onSubmitWord() {
-        // Get a reference to the word player tried
         val playerWord = binding.textInputEditText.text.toString()
 
-        // If the word is correct, dont show error message
-        // Check whether the game is over or not
-        if (viewModel.isUserCorrect(playerWord)){
+        if (viewModel.isUserCorrect(playerWord)) {
             setErrorTextField(false)
-            if (viewModel.nextWord()){
-                updateNextWordOnScreen()
+            if (!viewModel.nextWord()) {
+                showFinalGameDialog()
             }
-            else showFinalGameDialog()
+        } else {
+            setErrorTextField(true)
         }
-
-        // If playerWord is not correct, show error message
-        else setErrorTextField(true)
     }
 
     /*
@@ -101,18 +87,8 @@ class GameFragment : Fragment() {
     private fun onSkipWord() {
         if (viewModel.nextWord()){
             setErrorTextField(false)
-            updateNextWordOnScreen()
         }
         else showFinalGameDialog()
-    }
-
-    /*
-     * Gets a random word for the list of words and shuffles the letters in it.
-     */
-    private fun getNextScrambledWord(): String {
-        val tempWord = allWordsList.random().toCharArray()
-        tempWord.shuffle()
-        return String(tempWord)
     }
 
     /*
@@ -122,7 +98,6 @@ class GameFragment : Fragment() {
     private fun restartGame() {
         viewModel.reinitializeData()
         setErrorTextField(false)
-        updateNextWordOnScreen()
     }
 
     /*
@@ -145,12 +120,6 @@ class GameFragment : Fragment() {
         }
     }
 
-    /*
-     * Displays the next scrambled word on screen.
-     */
-    private fun updateNextWordOnScreen() {
-        binding.textViewUnscrambledWord.text = viewModel.currentScrambledWord
-    }
 
     /**
      * Creates and shows an alert with final score
@@ -158,16 +127,11 @@ class GameFragment : Fragment() {
     private fun showFinalGameDialog(){
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(getString(R.string.congratulations))
-            .setMessage(getString(R.string.you_scored, viewModel.score))
+            .setMessage(getString(R.string.you_scored, viewModel.score.value))
             .setCancelable(false)
             .setNegativeButton(getString(R.string.exit)) {_, _, -> exitGame()}
             .setPositiveButton(getString(R.string.play_again)) {_, _ -> restartGame()}
             .show()
-    }
-
-    override fun onDetach() {
-        super.onDetach()
-        Log.d(TAG, "GameFragment destroyed")
     }
 }
 
